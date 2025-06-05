@@ -15,17 +15,18 @@ while (cat.x === rat.x && cat.y === rat.y) {
   rat = randomPosition();
 }
 
-readline.emitKeypressEvents(process.stdin);
-process.stdin.setRawMode(true);
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-function drawBoard() {
+function drawBoard(tempCat = cat, tempRat = rat) {
   console.clear();
   for (let y = 0; y < BOARD_SIZE; y++) {
     let row = '';
     for (let x = 0; x < BOARD_SIZE; x++) {
-      if (cat.x === x && cat.y === y) {
+      if (tempCat.x === x && tempCat.y === y) {
         row += '🐱';
-      } else if (rat.x === x && rat.y === y) {
+      } else if (tempRat.x === x && tempRat.y === y) {
         row += '🐭';
       } else {
         row += '⬜';
@@ -35,8 +36,6 @@ function drawBoard() {
   }
   console.log('Usa W/A/S/D para mover al gato. Ctrl+C para salir.');
 }
-
-drawBoard();
 
 function move(entity, dx, dy) {
   entity.x = Math.min(BOARD_SIZE - 1, Math.max(0, entity.x + dx));
@@ -58,17 +57,21 @@ function checkWin() {
   return cat.x === rat.x && cat.y === rat.y;
 }
 
-const ratInterval = setInterval(() => {
-  moveRat();
-  if (checkWin()) {
-    endGame();
-  } else {
-    drawBoard();
-  }
-}, 1000);
+let ratInterval;
 
-process.stdin.on('keypress', (str, key) => {
-  if (key.sequence === '\u0003') { // Ctrl+C
+async function dropFromTop(entity) {
+  const finalY = entity.y;
+  entity.y = 0;
+  for (let y = 0; y <= finalY; y++) {
+    entity.y = y;
+    drawBoard();
+    await sleep(100);
+  }
+  entity.y = finalY;
+}
+
+function onKeyPress(str, key) {
+  if (key.sequence === '\u0003') {
     endGame(true);
     return;
   }
@@ -91,7 +94,27 @@ process.stdin.on('keypress', (str, key) => {
   } else {
     drawBoard();
   }
-});
+}
+
+async function startGame() {
+  readline.emitKeypressEvents(process.stdin);
+  process.stdin.setRawMode(true);
+
+  await dropFromTop(cat);
+  await dropFromTop(rat);
+  drawBoard();
+
+  ratInterval = setInterval(() => {
+    moveRat();
+    if (checkWin()) {
+      endGame();
+    } else {
+      drawBoard();
+    }
+  }, 1000);
+
+  process.stdin.on('keypress', onKeyPress);
+}
 
 function endGame(exitOnly = false) {
   clearInterval(ratInterval);
@@ -104,3 +127,4 @@ function endGame(exitOnly = false) {
   process.exit();
 }
 
+startGame();
